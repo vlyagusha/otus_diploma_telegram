@@ -1,0 +1,12 @@
+bot_api_key: '821647258:AAFEQ_L4Fk9kr1oRbT7ay0PUWw3eRgYKLUg'
+movie_api_key: '5aabd3672ccd40399e41426a5f7b297f'
+webhook_url: 'https://35.246.148.240/hook.php'
+certificate_path: '/var/www/bot/YOURPUBLIC.pem'
+bot_username: '@films_choosing_otus_bot'
+
+mysql_credentials:
+  host: '127.0.0.1'
+  port: 3306
+  user: 'films_choosing'
+  password: 'password'
+  database: 'bot_db'
