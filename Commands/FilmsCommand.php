@@ -1,11 +1,14 @@
 <?php
 
 namespace Longman\TelegramBot\Commands\UserCommands;
-require __DIR__ . '/../ApiHandler.php';
+require 'ApiHandler.php';
+require 'ApiMethods.php';
 
 use Longman\TelegramBot\Commands\UserCommand;
-use Longman\TelegramBot\Entities\InlineKeyboard;
+use Longman\TelegramBot\Entities\Keyboard;
 use Longman\TelegramBot\Request;
+use Longman\TelegramBot\Commands\UserCommands\ApiMethods;
+use Longman\TelegramBot\Commands\UserCommands\ApiHandler;
 
 class FilmsCommand extends UserCommand {
     
@@ -17,12 +20,7 @@ class FilmsCommand extends UserCommand {
     /**
      * @var string
      */
-    protected $description = 'This function search your favourite movies by title';
-
-    /**
-     * @var string
-     */
-    protected $usage = '/films <text>';
+    protected $description = '';
 
     /**
      * @var string
@@ -32,53 +30,86 @@ class FilmsCommand extends UserCommand {
     private function parseUserString() 
     {
         $message = $this->getMessage();
-        $text    = trim($message->getText(true));
+        $text    = filter_var(trim($message->getText(true)), FILTER_SANITIZE_STRING);
         
         return $text;
     }
-
-    private function getMovieByNameFromApi($data)
-    {
-        $get_data = \ApiHandler::callAPI('GET', 'https://api.themoviedb.org/3/search/movie?api_key=5aabd3672ccd40399e41426a5f7b297f&language=en-US&page=1&include_adult=false&query='.$data, false);
-        $response = json_decode($get_data, true); 
-
-        $items = array_map(function ($film) {
+    
+    private static function renderTelegramKeyboardForFilmsChoosing($response) {
+        
+        $items = array_map(function ($film) { 
             return [
                 'text'          => $film['title'],
-                'callback_data' => $film['title'],
+                'id'            => $film['id'], 
             ];
-        }, $response['results']);
-
-        $items = array_slice($items, 0, 6);
+        }, $response);
 
         $max_per_row  = 3;
         $per_row      = sqrt(count($items));
         $rows         = array_chunk($items, $per_row === floor($per_row) ? $per_row : $max_per_row);
+
+        $keyboard = [
+            'keyboard' => $rows
+        ];
+
+        $keyboard = json_encode($keyboard);
         
-        return $rows;
+        return $keyboard;
+    }
+
+    public static function SendMoviesAsButtons($text, $chat)
+    {
+        
+        $chat_id = $chat->getId();
+        $movies = ApiMethods::getMoviesByNameFromApi($text);
+        $keyboard = self::renderTelegramKeyboardForFilmsChoosing($movies);
+        
+        $data = [
+            'chat_id' => $chat_id,
+            'text'    => 'Выберите свои любимые фильмы:',
+            'reply_markup' => $keyboard
+        ];
+
+        Request::sendMessage($data);
+    }
+    
+    public static function renderMessageWithRecommendationsForSend($user_id, $favouriteFilmsIDs)
+    {
+        $text = '';
+
+        $recommendations = ApiMethods::getRecommendationsFromApi($user_id, $favouriteFilmsIDs);
+        foreach ($recommendations as $recommendation) {
+            $text .= '<a href="'.$recommendation['trailerLink'].'"><b>'.$recommendation['title'].'</b></a>' . PHP_EOL;
+        }
+        
+        return $text;
+    }
+    
+    public static function moviesFromApiChecking($chat_id)
+    {
+        Request::sendPhoto([
+            'chat_id' => $chat_id,
+            'photo'   => Request::encodeFile(GoCommand::TRY_AGAIN_PHOTO),
+        ]);
+        
+        $data['chat_id']      = $chat_id;
+        $data['text']         = 'К сожалению, по вашему запросу ничего не найдено...'. PHP_EOL
+            .'Повторите поиск:';
+        $data['reply_markup'] = Keyboard::remove(['selective' => true]);
+
+        Request::sendMessage($data);
     }
     
     public function execute() 
     {
         $chat_id = $this->getMessage()->getChat()->getId();
         $text = $this->parseUserString();
-        
-        if ($text === '') {
-            $text = 'Command usage: ' . $this->getUsage();
-        }
-
-        $rows = $this->getMovieByNameFromApi($text);
-
-        $keyboard = [
-            'inline_keyboard' => $rows // todo: формирование кнопок -> отдельная функция
-        ];
-        
-        $encodedKeyboard = json_encode($keyboard);
+        $movies = ApiMethods::getMoviesByNameFromApi($text);
+        $keyboard = self::renderTelegramKeyboardForFilmsChoosing($movies);
         
         $data = [
             'chat_id' => $chat_id,
-            'text'    => 'Choose your favourite films',
-            'reply_markup' => $encodedKeyboard
+            'reply_markup' => $keyboard
         ];
 
         return Request::sendMessage($data);

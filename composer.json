@@ -6,6 +6,7 @@
     "longman/telegram-bot": "*",
     "ext-curl": "*",
     "ext-yaml": "*",
-    "ext-json": "*"
+    "ext-json": "*",
+    "monolog/monolog": "^2.0"
   }
 }

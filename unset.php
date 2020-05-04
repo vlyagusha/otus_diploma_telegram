@@ -1,10 +1,4 @@
 <?php
-/**
- * README
- * This file is intended to unset the webhook.
- * Uncommented parameters must be filled
- */
-
 // Load composer
 require_once __DIR__ . '/vendor/autoload.php';
 $config = yaml_parse_file('config.yaml');
